@@ -1,0 +1,23 @@
+name: ElysiumCore
+version: 1.0.0
+main: dev.elysium.core.ElysiumCore
+api-version: '1.21'
+authors:
+  - Elysium
+description: Core engine for Elysium Fantasy Server
+
+softdepend:
+  - PlaceholderAPI
+  - Vault
+
+commands:
+  elysium:
+    description: ElysiumCore admin command
+    aliases: [ely]
+    permission: elysium.admin
+    usage: /elysium <reload|info|setlevel|addmoney>
+
+permissions:
+  elysium.admin:
+    description: Full admin access
+    default: op
