@@ -52,12 +52,12 @@ public class ElysiumExpansion extends PlaceholderExpansion {
             case "exp_required" -> String.valueOf(ep.getExpRequired());
             case "exp_bar"      -> ColorUtil.progressBar(
                                      (int)ep.getExp(), (int)ep.getExpRequired(),
-                                     10, 'â– ', 'â–¡', "&a", "&7");
+                                     10, '■', '□', "&a", "&7");
             case "mana"         -> String.valueOf(ep.getMana());
             case "max_mana"     -> String.valueOf(ep.getMaxMana());
             case "mana_bar"     -> ColorUtil.progressBar(
                                      ep.getMana(), ep.getMaxMana(),
-                                     10, 'â– ', 'â–¡', "&b", "&8");
+                                     10, '■', '□', "&b", "&8");
             case "class"        -> ep.getPlayerClass();
             case "balance"      -> String.format("%.1f", ep.getBalance());
             case "guild"        -> ep.getGuild().isEmpty() ? "None" : ep.getGuild();
