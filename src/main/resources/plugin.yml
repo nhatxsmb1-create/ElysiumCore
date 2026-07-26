@@ -15,9 +15,12 @@ commands:
     description: ElysiumCore admin command
     aliases: [ely]
     permission: elysium.admin
-    usage: /elysium <reload|info|setlevel|addmoney>
+    usage: /elysium <reload|info|profile|setlevel|addmoney>
 
 permissions:
   elysium.admin:
     description: Full admin access
     default: op
+  elysium.profile:
+    description: View own profile
+    default: true
