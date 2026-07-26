@@ -20,6 +20,17 @@ defaults:
   max-mana: 100
   max-level: 100
 
+# Tu dong save moi bao nhieu tick? (6000 = 5 phut)
+auto-save:
+  enabled: true
+  interval: 6000
+
+# Hien thi title khi level up?
+level-up:
+  title: true
+  sound: true
+  broadcast: false  # Thong bao cho ca server?
+
 messages:
   prefix: "&b[Elysium] &r"
   no-permission: "&cBan khong co quyen!"
