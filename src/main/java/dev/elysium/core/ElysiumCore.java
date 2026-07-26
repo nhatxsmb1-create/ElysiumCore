@@ -19,13 +19,13 @@ public class ElysiumCore extends JavaPlugin {
 
     private static ElysiumCore instance;
 
-    private ConfigManager configManager;
+    private ConfigManager  configManager;
     private DatabaseManager databaseManager;
-    private PlayerManager playerManager;
-    private GuiManager guiManager;
+    private PlayerManager  playerManager;
+    private GuiManager     guiManager;
     private CooldownManager cooldownManager;
-    private Scheduler scheduler;
-    private Economy economy;
+    private Scheduler      scheduler;
+    private Economy        economy;
 
     @Override
     public void onEnable() {
@@ -55,6 +55,8 @@ public class ElysiumCore extends JavaPlugin {
 
         getCommand("elysium").setExecutor(new ElysiumCommand(this));
 
+        startAutoSave();
+
         getLogger().info("=== ElysiumCore v" + getDescription().getVersion() + " enabled! ===");
         getLogger().info("Season: " + configManager.getSeason() + " | Age: " + configManager.getAge());
     }
@@ -69,21 +71,32 @@ public class ElysiumCore extends JavaPlugin {
     private void setupDatabase() {
         String type = getConfig().getString("database.type", "sqlite");
         databaseManager = "mysql".equalsIgnoreCase(type)
-            ? new MySQLDatabase(this)
-            : new SQLiteDatabase(this);
+            ? new MySQLDatabase(this) : new SQLiteDatabase(this);
         databaseManager.initialize();
     }
 
     private void setupVault() {
         if (getServer().getPluginManager().getPlugin("Vault") == null) {
-            getLogger().warning("Vault not found!");
-            return;
+            getLogger().warning("Vault not found!"); return;
         }
         RegisteredServiceProvider<Economy> rsp =
             getServer().getServicesManager().getRegistration(Economy.class);
         if (rsp == null) { getLogger().warning("No economy provider!"); return; }
         economy = rsp.getProvider();
         getLogger().info("Vault hooked: " + economy.getName());
+    }
+
+    /** Auto-save tat ca player online moi 5 phut */
+    private void startAutoSave() {
+        if (!getConfig().getBoolean("auto-save.enabled", true)) return;
+        int interval = getConfig().getInt("auto-save.interval", 6000);
+        scheduler.runTimerAsync(() -> {
+            int count = playerManager.getOnlinePlayers().size();
+            if (count > 0) {
+                playerManager.saveAll();
+                getLogger().info("[AutoSave] Saved " + count + " player(s).");
+            }
+        }, interval, interval);
     }
 
     public static ElysiumCore getInstance()     { return instance; }
