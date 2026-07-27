@@ -5,27 +5,18 @@ import dev.elysium.core.api.CoreAPI;
 import dev.elysium.core.player.ElysiumPlayer;
 import dev.elysium.core.util.ColorUtil;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import net.milkbowl.vault.economy.Economy;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Cac placeholder co san:
- *   %elysium_level%         - Level hien tai
- *   %elysium_exp%           - EXP hien tai
- *   %elysium_exp_required%  - EXP can de len level
- *   %elysium_exp_bar%       - Progress bar EXP
- *   %elysium_mana%          - Mana hien tai
- *   %elysium_max_mana%      - Mana toi da
- *   %elysium_mana_bar%      - Progress bar Mana
- *   %elysium_class%         - Class cua player
- *   %elysium_balance%       - So tien
- *   %elysium_guild%         - Ten guild
- *   %elysium_island%        - ID dao
- *   %elysium_season%        - Season hien tai
- *   %elysium_battlepass%    - Level battle pass
- *   %elysium_server_name%   - Ten server
- *   %elysium_age%           - Age hien tai
+ * Cac placeholder:
+ *   %elysium_level%        %elysium_exp%         %elysium_exp_required%
+ *   %elysium_exp_bar%      %elysium_mana%         %elysium_max_mana%
+ *   %elysium_mana_bar%     %elysium_class%        %elysium_balance%
+ *   %elysium_guild%        %elysium_island%        %elysium_season%
+ *   %elysium_battlepass%   %elysium_server_name%   %elysium_age%
  */
 public class ElysiumExpansion extends PlaceholderExpansion {
 
@@ -58,8 +49,14 @@ public class ElysiumExpansion extends PlaceholderExpansion {
             case "mana_bar"     -> ColorUtil.progressBar(
                                      ep.getMana(), ep.getMaxMana(),
                                      10, '■', '□', "&b", "&8");
-            case "class"        -> ep.getPlayerClass();
-            case "balance"      -> String.format("%.1f", ep.getBalance());
+            case "class"        -> ep.getPlayerClass().equals("NONE") ? "Chua chon" : ep.getPlayerClass();
+            // Balance: uu tien Vault, fallback internal
+            case "balance"      -> {
+                Economy eco = plugin.getEconomy();
+                yield eco != null
+                    ? String.format("%.1f", eco.getBalance(player))
+                    : String.format("%.1f", ep.getBalance());
+            }
             case "guild"        -> ep.getGuild().isEmpty() ? "None" : ep.getGuild();
             case "island"       -> ep.getIsland().isEmpty() ? "None" : ep.getIsland();
             case "season"       -> String.valueOf(ep.getSeason());
