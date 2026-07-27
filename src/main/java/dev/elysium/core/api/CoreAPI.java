@@ -4,7 +4,9 @@ import dev.elysium.core.ElysiumCore;
 import dev.elysium.core.event.ElysiumLevelUpEvent;
 import dev.elysium.core.player.ElysiumPlayer;
 import dev.elysium.core.util.MessageUtil;
+import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
@@ -12,7 +14,9 @@ import java.util.UUID;
 
 /**
  * Public API cho ElysiumCore.
- * Cac plugin khac (Combat, Sky, War...) chi can goi class nay.
+ *
+ * Balance uu tien Vault (EssentialsX).
+ * Neu Vault khong co, fall back ve internal balance.
  */
 public final class CoreAPI {
 
@@ -24,24 +28,55 @@ public final class CoreAPI {
     public static ElysiumPlayer getPlayer(UUID uuid) { return core.getPlayerManager().getPlayer(uuid); }
     public static Collection<ElysiumPlayer> getOnlinePlayers() { return core.getPlayerManager().getOnlinePlayers(); }
 
-    // ── Balance ───────────────────────────────────────────────────────────────
-    public static double  getBalance(Player p)               { ElysiumPlayer ep=getPlayer(p); return ep!=null?ep.getBalance():0; }
-    public static void    addBalance(Player p, double amt)   { ElysiumPlayer ep=getPlayer(p); if(ep!=null) ep.addBalance(amt); }
-    public static boolean removeBalance(Player p, double amt){ ElysiumPlayer ep=getPlayer(p); return ep!=null&&ep.removeBalance(amt); }
-    public static boolean hasBalance(Player p, double amt)   { ElysiumPlayer ep=getPlayer(p); return ep!=null&&ep.getBalance()>=amt; }
+    // ── Balance (Vault first, fallback internal) ───────────────────────────────
+
+    public static double getBalance(Player p) {
+        Economy eco = core.getEconomy();
+        if (eco != null) return eco.getBalance(p);
+        ElysiumPlayer ep = getPlayer(p); return ep != null ? ep.getBalance() : 0;
+    }
+
+    public static double getBalance(UUID uuid) {
+        Economy eco = core.getEconomy();
+        if (eco != null) return eco.getBalance(Bukkit.getOfflinePlayer(uuid));
+        ElysiumPlayer ep = getPlayer(uuid); return ep != null ? ep.getBalance() : 0;
+    }
+
+    public static void addBalance(Player p, double amount) {
+        Economy eco = core.getEconomy();
+        if (eco != null) { eco.depositPlayer(p, amount); return; }
+        ElysiumPlayer ep = getPlayer(p); if (ep != null) ep.addBalance(amount);
+    }
+
+    public static boolean removeBalance(Player p, double amount) {
+        Economy eco = core.getEconomy();
+        if (eco != null) {
+            if (!eco.has(p, amount)) return false;
+            eco.withdrawPlayer(p, amount);
+            return true;
+        }
+        ElysiumPlayer ep = getPlayer(p); return ep != null && ep.removeBalance(amount);
+    }
+
+    public static boolean hasBalance(Player p, double amount) {
+        Economy eco = core.getEconomy();
+        if (eco != null) return eco.has(p, amount);
+        ElysiumPlayer ep = getPlayer(p); return ep != null && ep.getBalance() >= amount;
+    }
+
+    // Balance cho OfflinePlayer (ProfileGui, leaderboard...)
+    public static double getBalance(OfflinePlayer p) {
+        Economy eco = core.getEconomy();
+        if (eco != null) return eco.getBalance(p);
+        ElysiumPlayer ep = getPlayer(p.getUniqueId()); return ep != null ? ep.getBalance() : 0;
+    }
 
     // ── Mana ──────────────────────────────────────────────────────────────────
-    public static int     getMana(Player p)              { ElysiumPlayer ep=getPlayer(p); return ep!=null?ep.getMana():0; }
-    public static boolean useMana(Player p, int amt)     { ElysiumPlayer ep=getPlayer(p); return ep!=null&&ep.useMana(amt); }
-    public static void    addMana(Player p, int amt)     { ElysiumPlayer ep=getPlayer(p); if(ep!=null) ep.addMana(amt); }
+    public static int     getMana(Player p)          { ElysiumPlayer ep=getPlayer(p); return ep!=null?ep.getMana():0; }
+    public static boolean useMana(Player p, int amt) { ElysiumPlayer ep=getPlayer(p); return ep!=null&&ep.useMana(amt); }
+    public static void    addMana(Player p, int amt) { ElysiumPlayer ep=getPlayer(p); if(ep!=null) ep.addMana(amt); }
 
     // ── EXP / Level ───────────────────────────────────────────────────────────
-    /**
-     * Them EXP va tu dong xu ly level up:
-     * - Fire ElysiumLevelUpEvent
-     * - Hien thi title + sound
-     * - Broadcast neu config bat
-     */
     public static void addExp(Player p, long amount) {
         ElysiumPlayer ep = getPlayer(p);
         if (ep == null) return;
@@ -49,7 +84,6 @@ public final class CoreAPI {
         ep.addExp(amount);
         int newLevel = ep.getLevel();
         if (newLevel > oldLevel) {
-            // Fire event tren main thread
             Bukkit.getScheduler().runTask(core, () -> {
                 ElysiumLevelUpEvent event = new ElysiumLevelUpEvent(p, ep, oldLevel, newLevel);
                 Bukkit.getPluginManager().callEvent(event);
@@ -59,7 +93,7 @@ public final class CoreAPI {
                         Bukkit.broadcastMessage(
                             dev.elysium.core.util.ColorUtil.color(
                                 "&b[Elysium] &e" + p.getName() +
-                                " &7da dat Level &e" + newLevel + "&7!"));
+                                " &7da dat &eLevel " + newLevel + "&7!"));
                     }
                 }
             });
@@ -73,4 +107,4 @@ public final class CoreAPI {
     public static int        getSeason()     { return core.getConfigManager().getSeason(); }
     public static String     getAge()        { return core.getConfigManager().getAge(); }
     public static ElysiumCore getCore()      { return core; }
-}
+                        }
