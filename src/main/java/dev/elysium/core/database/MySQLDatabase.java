@@ -3,9 +3,12 @@ package dev.elysium.core.database;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import dev.elysium.core.ElysiumCore;
+import dev.elysium.core.leaderboard.LeaderboardEntry;
 import dev.elysium.core.player.ElysiumPlayer;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class MySQLDatabase extends DatabaseManager {
@@ -65,7 +68,8 @@ public class MySQLDatabase extends DatabaseManager {
     @Override
     public ElysiumPlayer loadPlayer(UUID uuid, String name) {
         try (Connection conn = ds.getConnection();
-             PreparedStatement ps = conn.prepareStatement("SELECT * FROM elysium_players WHERE uuid=?")) {
+             PreparedStatement ps = conn.prepareStatement(
+                "SELECT * FROM elysium_players WHERE uuid=?")) {
             ps.setString(1, uuid.toString());
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return map(rs, uuid);
@@ -113,6 +117,71 @@ public class MySQLDatabase extends DatabaseManager {
         } catch (SQLException e) { plugin.getLogger().severe("savePlayer: " + e.getMessage()); }
     }
 
+    // ── Leaderboard ───────────────────────────────────────────────────────────
+
+    @Override
+    public List<LeaderboardEntry> getTopByLevel(int limit) {
+        List<LeaderboardEntry> list = new ArrayList<>();
+        try (Connection conn = ds.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                "SELECT uuid,name,level,exp,balance,player_class FROM elysium_players ORDER BY level DESC, exp DESC LIMIT ?")) {
+            ps.setInt(1, limit);
+            ResultSet rs = ps.executeQuery();
+            int rank = 1;
+            while (rs.next()) {
+                list.add(new LeaderboardEntry(
+                    rank++,
+                    UUID.fromString(rs.getString("uuid")),
+                    rs.getString("name"),
+                    rs.getInt("level"),
+                    rs.getLong("exp"),
+                    rs.getDouble("balance"),
+                    rs.getString("player_class")
+                ));
+            }
+        } catch (SQLException e) { plugin.getLogger().severe("getTopByLevel: " + e.getMessage()); }
+        return list;
+    }
+
+    @Override
+    public List<LeaderboardEntry> getTopByBalance(int limit) {
+        List<LeaderboardEntry> list = new ArrayList<>();
+        try (Connection conn = ds.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                "SELECT uuid,name,level,exp,balance,player_class FROM elysium_players ORDER BY balance DESC LIMIT ?")) {
+            ps.setInt(1, limit);
+            ResultSet rs = ps.executeQuery();
+            int rank = 1;
+            while (rs.next()) {
+                list.add(new LeaderboardEntry(
+                    rank++,
+                    UUID.fromString(rs.getString("uuid")),
+                    rs.getString("name"),
+                    rs.getInt("level"),
+                    rs.getLong("exp"),
+                    rs.getDouble("balance"),
+                    rs.getString("player_class")
+                ));
+            }
+        } catch (SQLException e) { plugin.getLogger().severe("getTopByBalance: " + e.getMessage()); }
+        return list;
+    }
+
+    // ── Season Reset ──────────────────────────────────────────────────────────
+
+    @Override
+    public void resetAllForSeason(int newSeason) {
+        try (Connection conn = ds.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                "UPDATE elysium_players SET level=1,exp=0,season=?,battle_pass_level=0")) {
+            ps.setInt(1, newSeason);
+            int rows = ps.executeUpdate();
+            plugin.getLogger().info("Season reset -> " + newSeason + " | " + rows + " players.");
+        } catch (SQLException e) { plugin.getLogger().severe("resetAllForSeason: " + e.getMessage()); }
+    }
+
+    // ── Internal ──────────────────────────────────────────────────────────────
+
     private void bind(PreparedStatement ps, ElysiumPlayer p) throws SQLException {
         ps.setString(1,  p.getUuid().toString()); ps.setString(2,  p.getName());
         ps.setDouble(3,  p.getBalance());         ps.setInt(4,     p.getPlayerPoints());
@@ -126,74 +195,22 @@ public class MySQLDatabase extends DatabaseManager {
 
     private ElysiumPlayer map(ResultSet rs, UUID uuid) throws SQLException {
         ElysiumPlayer ep = new ElysiumPlayer(uuid, rs.getString("name"));
-        ep.setBalance(rs.getDouble("balance"));   ep.setPlayerPoints(rs.getInt("player_points"));
-        ep.setPlayerClass(rs.getString("player_class")); ep.setLevel(rs.getInt("level"));
-        ep.setExp(rs.getLong("exp"));             ep.setMana(rs.getInt("mana"));
-        ep.setMaxMana(rs.getInt("max_mana"));     ep.setGuild(rs.getString("guild"));
-        ep.setIsland(rs.getString("island"));     ep.setBattlePassLevel(rs.getInt("battle_pass_level"));
-        ep.setSeason(rs.getInt("season"));        ep.setFirstJoin(rs.getLong("first_join"));
+        ep.setBalance(rs.getDouble("balance"));
+        ep.setPlayerPoints(rs.getInt("player_points"));
+        ep.setPlayerClass(rs.getString("player_class"));
+        ep.setLevel(rs.getInt("level"));
+        ep.setExp(rs.getLong("exp"));
+        ep.setMana(rs.getInt("mana"));
+        ep.setMaxMana(rs.getInt("max_mana"));
+        ep.setGuild(rs.getString("guild"));
+        ep.setIsland(rs.getString("island"));
+        ep.setBattlePassLevel(rs.getInt("battle_pass_level"));
+        ep.setSeason(rs.getInt("season"));
+        ep.setFirstJoin(rs.getLong("first_join"));
         ep.setLastSeen(rs.getLong("last_seen"));
         return ep;
     }
 
     @Override
     public void close() { if (ds != null && !ds.isClosed()) ds.close(); }
-
-    // ── Leaderboard ──────────────────────────────────────────────────────────
-
-    @Override
-    public java.util.List<dev.elysium.core.leaderboard.LeaderboardEntry> getTopByLevel(int limit) {
-        java.util.List<dev.elysium.core.leaderboard.LeaderboardEntry> list = new java.util.ArrayList<>();
-        try (Connection conn = ds.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                "SELECT uuid, name, level AS value FROM elysium_players ORDER BY level DESC LIMIT ?")) {
-            ps.setInt(1, limit);
-            ResultSet rs = ps.executeQuery();
-            int rank = 1;
-            while (rs.next()) {
-                list.add(new dev.elysium.core.leaderboard.LeaderboardEntry(
-                    rank++,
-                    rs.getString("name"),
-                    java.util.UUID.fromString(rs.getString("uuid")),
-                    rs.getLong("value")
-                ));
-            }
-        } catch (SQLException e) { plugin.getLogger().severe("getTopByLevel: " + e.getMessage()); }
-        return list;
-    }
-
-    @Override
-    public java.util.List<dev.elysium.core.leaderboard.LeaderboardEntry> getTopByBalance(int limit) {
-        java.util.List<dev.elysium.core.leaderboard.LeaderboardEntry> list = new java.util.ArrayList<>();
-        try (Connection conn = ds.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                "SELECT uuid, name, CAST(balance AS UNSIGNED) AS value FROM elysium_players ORDER BY balance DESC LIMIT ?")) {
-            ps.setInt(1, limit);
-            ResultSet rs = ps.executeQuery();
-            int rank = 1;
-            while (rs.next()) {
-                list.add(new dev.elysium.core.leaderboard.LeaderboardEntry(
-                    rank++,
-                    rs.getString("name"),
-                    java.util.UUID.fromString(rs.getString("uuid")),
-                    rs.getLong("value")
-                ));
-            }
-        } catch (SQLException e) { plugin.getLogger().severe("getTopByBalance: " + e.getMessage()); }
-        return list;
-    }
-
-    // ── Season Reset ─────────────────────────────────────────────────────────
-
-    @Override
-    public void resetAllForSeason(int newSeason) {
-        try (Connection conn = ds.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                "UPDATE elysium_players SET season=?, level=1, exp=0, battle_pass_level=0")) {
-            ps.setInt(1, newSeason);
-            int rows = ps.executeUpdate();
-            plugin.getLogger().info("Season reset -> " + newSeason + " | " + rows + " players updated.");
-        } catch (SQLException e) { plugin.getLogger().severe("resetAllForSeason: " + e.getMessage()); }
-    }
-
-                   }
+             }
